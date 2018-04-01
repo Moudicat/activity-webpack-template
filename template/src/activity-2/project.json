@@ -1,0 +1,9 @@
+{
+  "name": "activity-2",
+  "author": "huangrd",
+  "initTime": "2018-03-30",
+  "entry": {
+    "js": "js/main.js",
+    "html": "index.html"
+  }
+}
