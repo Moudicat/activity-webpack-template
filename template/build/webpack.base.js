@@ -1,10 +1,26 @@
-const path = require('path');
-const ExtractTextPlugin = require('extract-text-webpack-plugin');
+const path = require('path')
+const ExtractTextPlugin = require('extract-text-webpack-plugin')
+
+const postcssLoader = {
+  loader: 'postcss-loader',
+  options: {
+    plugins: [require('autoprefixer')]
+  }
+}
 
 module.exports = {
   plugins: [],
   module: {
     rules: [
+      {
+        test: /\.(html)$/,
+        use: {
+          loader: 'html-loader',
+          options: {
+            minimize: true
+          }
+        }
+      },
       {
         test: /\.js$/,
         use: [
@@ -18,23 +34,24 @@ module.exports = {
         test: /\.css$/,
         use: ExtractTextPlugin.extract({
           fallback: 'style-loader',
-          use: 'css-loader'
+          use: ['css-loader', postcssLoader]
         }),
         exclude: [path.resolve(__dirname, '../node_modules')]
       },
       {
-        test: /\.css$/,
-        use: ['style-loader', 'css-loader'],
-        include: [path.resolve(__dirname, '../node_modules')]
+        test: /\.(scss|sass)$/,
+        use: ExtractTextPlugin.extract({
+          use: ['css-loader', 'sass-loader', postcssLoader]
+        })
       },
       {
-        test: /\.(png|jpg)$/,
+        test: /\.(png|jpe?g|gif|svg)$/,
         use: [
           {
             loader: 'url-loader',
             options: {
               limit: 80000,
-              name: 'assets/img/[name]-[hash:8].[ext]'
+              name: 'assets/img/[name]-[hash:6].[ext]'
             }
           }
         ]
@@ -49,11 +66,7 @@ module.exports = {
             }
           }
         ]
-      },
-      {
-        test: /\.scss$/,
-        use: ['style-loader', 'css-loader', 'sass-loader']
       }
     ]
   }
-};
+}

@@ -6,6 +6,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin')
 const webpackDevServer = require('webpack-dev-server')
 const ExtractTextPlugin = require('extract-text-webpack-plugin')
 const opn = require('opn')
+const chalk = require('chalk')
 
 const fs = require('fs')
 const glob = require('glob')
@@ -24,7 +25,12 @@ const scanConfig = () => {
       if (name && jsEntry && htmlEntry) {
         projectEntryObject[name] = { name, jsEntry, htmlEntry }
       } else {
-        console.error('\n\n  项目内 project.json 配置错误  \n\n')
+        console.log(
+          chalk.bgRed(
+            '\n\n  项目内 project.json 配置错误  \n 请检查文件内 name/entry 配置是否正常 \n'
+          )
+        )
+        reject()
       }
     }
 
@@ -51,6 +57,18 @@ const addHash = str => {
   return splitByDotArr.join('.')
 }
 
+const generateHtmlWebpackPluginSettings = (htmlEntry, projectName) => {
+  if (typeof htmlEntry === 'string') {
+    htmlEntry = [htmlEntry]
+  }
+  return htmlEntry.map(entry => {
+    return new HtmlWebpackPlugin({
+      template: `./src/${projectName}/${entry}`,
+      filename: `${entry.split('.')[0]}.html`
+    })
+  })
+}
+
 const runDev = project => {
   const webpackConfig = merge(baseWebpackConfig, {
     mode: 'development',
@@ -58,15 +76,12 @@ const runDev = project => {
     output: {
       path: r('../'),
       filename: `dist/${project.name}/${addHash(project.jsEntry)}`,
-      publicPath: './'
+      publicPath: '/'
     },
     devtool: 'cheap-module-eval-source-map',
     plugins: [
       new webpack.HotModuleReplacementPlugin(),
-      new HtmlWebpackPlugin({
-        template: `./src/${project.name}/index.html`,
-        filename: 'index.html'
-      }),
+      ...generateHtmlWebpackPluginSettings(project.htmlEntry, project.name),
       new ExtractTextPlugin(`dist/${project.name}/css/style.[hash:6].css`),
       new webpack.NamedModulesPlugin(),
       new webpack.NoEmitOnErrorsPlugin()
@@ -90,24 +105,27 @@ const runDev = project => {
 
   server.listen(8080)
 
-  // compiler.hooks.done.tap('once', () => {
-  //   server.openUrl = false
-  //   opn('http://localhost:8080')
-  //   setTimeout(() => {
-  //     console.log(
-  //       `\n\n 项目[${project.name}]热更新已启动 \n http://localhost:8080  \n\n`
-  //     )
-  //   }, 0)
-  // })
+  setTimeout(() => {
+    console.log(
+      chalk.green(
+        `\n\n 项目[${project.name}]热更新已启动 \n\n http://localhost:8080  \n\n`
+      )
+    )
+    opn('http://localhost:8080')
+  }, 0)
 }
 
 const project = process.argv[2]
-if (!project) return console.log('\n 未输入打包项目 \n')
+if (!project) return console.log(chalk.red('\n 未输入打包项目 \n'))
 
-scanConfig().then(() => {
-  if (typeof projectEntryObject[project] === 'object') {
-    runDev(projectEntryObject[project])
-  } else {
-    console.error('\n\n  警告： 没有对应的项目名 请检查 \n\n')
-  }
-})
+scanConfig()
+  .then(() => {
+    if (typeof projectEntryObject[project] === 'object') {
+      runDev(projectEntryObject[project])
+    } else {
+      console.log(chalk.red('\n\n  警告： 没有对应的项目名 请检查 \n\n'))
+    }
+  })
+  .catch(err => {
+    console.log(chalk.bgRed('\n\n 项目启动失败 \n\n'))
+  })

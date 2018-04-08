@@ -5,6 +5,7 @@ const path = require('path')
 const ExtractTextPlugin = require('extract-text-webpack-plugin')
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const CleanWebpackPlugin = require('clean-webpack-plugin')
+const chalk = require('chalk')
 const fs = require('fs')
 const glob = require('glob')
 const r = pathString => path.resolve(__dirname, pathString)
@@ -22,13 +23,13 @@ const scanConfig = () => {
       if (name && jsEntry && htmlEntry) {
         projectEntryObject[name] = { name, jsEntry, htmlEntry }
       } else {
-        console.error('\n\n  项目内 project.json 配置错误  \n\n')
+        console.log(chalk.bgRed('\n\n  项目内 project.json 配置错误  \n\n'))
       }
     }
 
     glob(pattern, { nodir: true }, (err, files) => {
       if (err) {
-        console.log(err)
+        console.log(chalk.red(err))
         reject()
       } else {
         if (files.length) {
@@ -49,6 +50,18 @@ const addHash = str => {
   return splitByDotArr.join('.')
 }
 
+const generateHtmlWebpackPluginSettings = (htmlEntry, projectName) => {
+  if (typeof htmlEntry === 'string') {
+    htmlEntry = [htmlEntry]
+  }
+  return htmlEntry.map(entry => {
+    return new HtmlWebpackPlugin({
+      template: `./src/${projectName}/${entry}`,
+      filename: `${entry.split('.')[0]}.html`
+    })
+  })
+}
+
 const build = project => {
   webpack(
     merge(baseWebpackConfig, {
@@ -57,7 +70,7 @@ const build = project => {
       output: {
         path: r(`../dist/${project.name}`),
         filename: addHash(project.jsEntry),
-        publicPath: './'
+        publicPath: '/'
       },
 
       plugins: [
@@ -65,10 +78,7 @@ const build = project => {
           root: r('../')
         }),
         new ExtractTextPlugin('css/style.[hash:6].css'),
-        new HtmlWebpackPlugin({
-          template: `./src/${project.name}/index.html`,
-          filename: 'index.html'
-        })
+        ...generateHtmlWebpackPluginSettings(project.htmlEntry, project.name)
       ]
     })
   ).run((err, stats) => {
@@ -77,29 +87,29 @@ const build = project => {
     } else {
       if (stats.hasErrors()) {
         stats.compilation.errors.forEach(err =>
-          console.error('[webpack:error]', err)
+          console.log('[webpack:error]', err)
         )
         return
       }
       if (stats.hasWarnings()) {
         stats.compilation.warnings.forEach(err =>
-          console.error('[webpack:warning]', err)
+          console.log('[webpack:warning]', err)
         )
         return
       }
 
-      console.log(`\n\n   项目[${project.name}]打包完成    \n\n`)
+      console.log(chalk.green(`\n\n   项目[${project.name}]打包完成    \n\n`))
     }
   })
 }
 
 const project = process.argv[2]
-if (!project) return console.log('\n 未输入打包项目 \n')
+if (!project) return console.log(chalk.red('\n 未输入打包项目 \n'))
 
 scanConfig().then(() => {
   if (typeof projectEntryObject[project] === 'object') {
     build(projectEntryObject[project])
   } else {
-    console.error('\n\n  警告： 没有对应的项目名 请检查 \n\n')
+    console.log(chalk.red('\n\n  警告： 没有对应的项目名 请检查 \n\n'))
   }
 })

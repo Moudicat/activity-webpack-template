@@ -1,0 +1,8 @@
+{
+  "name": "project-a",
+  "author": "moudicat",
+  "entry": {
+    "js": "js/main.js",
+    "html": ["index.html"]
+  }
+}
