@@ -9,17 +9,35 @@ const postcssLoader = {
 }
 
 module.exports = {
-  plugins: [],
+  optimization: {
+    splitChunks: {
+      minChunks: Infinity,
+      name: true,
+      cacheGroups: {
+        vendors: {
+          test: /[\\/]node_modules[\\/]/,
+          priority: -10
+        }
+      }
+    }
+  },  
   module: {
     rules: [
       {
         test: /\.(html)$/,
-        use: {
+        use: [
+        {
           loader: 'html-loader',
           options: {
             minimize: true
           }
-        }
+        },
+        {
+          loader: path.resolve(__dirname, './html-version-loader.js'),
+          options: {
+            list: ['static8.ziroom.com/fecommon/mCommon2017/mCommon.js']
+          }
+        }]
       },
       {
         test: /\.js$/,
@@ -43,18 +61,6 @@ module.exports = {
         use: ExtractTextPlugin.extract({
           use: ['css-loader', 'sass-loader', postcssLoader]
         })
-      },
-      {
-        test: /\.(png|jpe?g|gif|svg)$/,
-        use: [
-          {
-            loader: 'url-loader',
-            options: {
-              limit: 80000,
-              name: 'assets/img/[name]-[hash:6].[ext]'
-            }
-          }
-        ]
       },
       {
         test: /\.(eot|svg|ttf|woff|woff2)$/,

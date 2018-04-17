@@ -9,6 +9,7 @@ const chalk = require('chalk')
 const fs = require('fs')
 const glob = require('glob')
 const r = pathString => path.resolve(__dirname, pathString)
+const exists = require('fs').existsSync
 
 let projectEntryObject = {}
 
@@ -43,13 +44,6 @@ const scanConfig = () => {
   })
 }
 
-const addHash = str => {
-  let splitByDotArr = str.split('.')
-  splitByDotArr[splitByDotArr.length - 1] = '[hash:6]'
-  splitByDotArr.push('js')
-  return splitByDotArr.join('.')
-}
-
 const generateHtmlWebpackPluginSettings = (htmlEntry, projectName) => {
   if (typeof htmlEntry === 'string') {
     htmlEntry = [htmlEntry]
@@ -57,28 +51,64 @@ const generateHtmlWebpackPluginSettings = (htmlEntry, projectName) => {
   return htmlEntry.map(entry => {
     return new HtmlWebpackPlugin({
       template: `./src/${projectName}/${entry}`,
-      filename: `${entry.split('.')[0]}.html`
+      filename: `${entry.split('.')[0]}.html`,
+      chunks: [entry.split('.')[0], 'main']
     })
   })
+}
+
+const generateJSEntry = (project) => {
+  const htmlEntry = project.htmlEntry;
+  if (typeof htmlEntry === 'string') {
+    htmlEntry = [htmlEntry]
+  }
+  let commonJSEntry = {
+    'main': `./src/${project.name}/${project.jsEntry}`
+  };
+  htmlEntry.forEach(html => {
+    const fileName = html.split('.')[0];
+    if (exists(r(`../src/${project.name}/js/${fileName}.js`))) {
+      commonJSEntry[fileName] = `./src/${project.name}/js/${fileName}.js`;
+    }
+  });
+  
+  return commonJSEntry;
 }
 
 const build = project => {
   webpack(
     merge(baseWebpackConfig, {
       mode: 'production',
-      entry: `./src/${project.name}/js/main.js`,
+      entry: generateJSEntry(project),
       output: {
         path: r(`../dist/${project.name}`),
-        filename: addHash(project.jsEntry),
-        publicPath: '/'
+        filename: "js/[name].[hash:6].js",
+        publicPath: './'
       },
-
+      module: {
+        rules: [{
+          test: /\.(png|jpe?g|gif|svg)$/,
+          use: [
+            {
+              loader: 'url-loader',
+              options: {
+                limit: 10 * 1024,
+                name: 'assets/img/[name]-[hash:6].[ext]'
+              }
+            },
+            {
+              loader: 'image-webpack-loader',
+              options: {}
+            }
+          ]
+        }]
+      },
       plugins: [
         new CleanWebpackPlugin([r(`../dist/${project.name}`)], {
           root: r('../')
         }),
         new ExtractTextPlugin('css/style.[hash:6].css'),
-        ...generateHtmlWebpackPluginSettings(project.htmlEntry, project.name)
+        ...generateHtmlWebpackPluginSettings(project.htmlEntry, project.name),
       ]
     })
   ).run((err, stats) => {
@@ -95,7 +125,6 @@ const build = project => {
         stats.compilation.warnings.forEach(err =>
           console.log('[webpack:warning]', err)
         )
-        return
       }
 
       console.log(chalk.green(`\n\n   项目[${project.name}]打包完成    \n\n`))

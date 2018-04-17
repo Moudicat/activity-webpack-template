@@ -9,6 +9,8 @@ const opn = require('opn')
 const chalk = require('chalk')
 
 const fs = require('fs')
+const exists = require('fs').existsSync
+
 const glob = require('glob')
 const r = pathString => path.resolve(__dirname, pathString)
 
@@ -50,13 +52,6 @@ const scanConfig = () => {
   })
 }
 
-const addHash = str => {
-  let splitByDotArr = str.split('.')
-  splitByDotArr[splitByDotArr.length - 1] = '[hash:6]'
-  splitByDotArr.push('js')
-  return splitByDotArr.join('.')
-}
-
 const generateHtmlWebpackPluginSettings = (htmlEntry, projectName) => {
   if (typeof htmlEntry === 'string') {
     htmlEntry = [htmlEntry]
@@ -64,19 +59,52 @@ const generateHtmlWebpackPluginSettings = (htmlEntry, projectName) => {
   return htmlEntry.map(entry => {
     return new HtmlWebpackPlugin({
       template: `./src/${projectName}/${entry}`,
-      filename: `${entry.split('.')[0]}.html`
+      filename: `${entry.split('.')[0]}.html`,
+      chunks: [entry.split('.')[0], 'main']
     })
   })
+}
+
+const generateJSEntry = (project) => {
+  const htmlEntry = project.htmlEntry;
+  if (typeof htmlEntry === 'string') {
+    htmlEntry = [htmlEntry]
+  }
+  let commonJSEntry = {
+    'main': `./src/${project.name}/${project.jsEntry}`
+  };
+  htmlEntry.forEach(html => {
+    const fileName = html.split('.')[0];
+    if (exists(r(`../src/${project.name}/js/${fileName}.js`))) {
+      commonJSEntry[fileName] = `./src/${project.name}/js/${fileName}.js`;
+    }
+  });
+  
+  return commonJSEntry;
 }
 
 const runDev = project => {
   const webpackConfig = merge(baseWebpackConfig, {
     mode: 'development',
-    entry: `./src/${project.name}/${project.jsEntry}`,
+    entry: generateJSEntry(project),
     output: {
-      path: r('../'),
-      filename: `dist/${project.name}/${addHash(project.jsEntry)}`,
+      path: r(`../dist/${project.name}/`),
+      filename: "[name].[hash:6].js",
       publicPath: '/'
+    },
+    module: {
+      rules: [{
+        test: /\.(png|jpe?g|gif|svg)$/,
+        use: [
+          {
+            loader: 'url-loader',
+            options: {
+              limit: 10 * 1024,
+              name: 'assets/img/[name]-[hash:6].[ext]'
+            }
+          }
+        ]
+      }]
     },
     devtool: 'cheap-module-eval-source-map',
     plugins: [
@@ -127,5 +155,6 @@ scanConfig()
     }
   })
   .catch(err => {
+    console.log(err)
     console.log(chalk.bgRed('\n\n 项目启动失败 \n\n'))
   })
